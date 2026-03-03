@@ -105,4 +105,16 @@ export const apiClient = {
       method: "PUT",
       body: JSON.stringify({ id, multiplier }),
     }),
+
+  // Payments
+  initializeDeposit: (amount: number) =>
+    fetchWithAuth("/payments/chapa/initialize", {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+
+  verifyTransaction: (txRef: string) =>
+    fetchWithAuth(`/payments/chapa/verify?tx_ref=${encodeURIComponent(txRef)}`),
+
+  getTransactions: () => fetchWithAuth("/payments/transactions"),
 };
