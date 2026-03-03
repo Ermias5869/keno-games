@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  password  String
+  balance   Decimal  @default(0) @db.Decimal(12, 2)
+  role      String   @default("user") // "user" | "admin"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  bets      Bet[]
+
+  @@index([phone])
+}
+
+model GameRound {
+  id           String   @id @default(cuid())
+  drawnNumbers Int[]
+  serverSeed   String
+  clientSeed   String   @default("")
+  hash         String
+  status       String   @default("betting") // "betting" | "drawing" | "completed"
+  createdAt    DateTime @default(now())
+  bets         Bet[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Bet {
+  id              String   @id @default(cuid())
+  userId          String
+  roundId         String
+  selectedNumbers Int[]
+  betAmount       Decimal  @db.Decimal(12, 2)
+  matches         Int      @default(0)
+  payout          Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  user  User      @relation(fields: [userId], references: [id])
+  round GameRound @relation(fields: [roundId], references: [id])
+
+  @@index([userId])
+  @@index([roundId])
+  @@index([createdAt])
+}
+
+model PayoutMultiplier {
+  id            String  @id @default(cuid())
+  selectedCount Int
+  matchCount    Int
+  multiplier    Decimal @db.Decimal(10, 2)
+
+  @@unique([selectedCount, matchCount])
+  @@index([selectedCount])
+}
