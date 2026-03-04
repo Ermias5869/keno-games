@@ -1,4 +1,4 @@
-# KENO80 — Provably Fair Keno Betting Game
+# SyntaxKeno — Provably Fair Keno Betting Game
 
 Full-stack Keno-style betting game with real-time 60-second rounds, provably fair draws, and an admin panel.
 

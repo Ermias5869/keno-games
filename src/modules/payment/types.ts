@@ -72,5 +72,26 @@ export interface ChapaWebhookPayload {
   updated_at: string;
 }
 
+export interface ChapaTransferRequest {
+  amount: number;
+  currency: string;
+  beneficiary_name: string;
+  account_number: string;
+  bank_code: string;
+  reference: string;
+}
+
+export interface ChapaTransferResponse {
+  message: string;
+  status: string;
+  data: unknown;
+}
+
+export interface ChapaBank {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export type TransactionStatus = "PENDING" | "SUCCESS" | "FAILED";
 export type TransactionType = "DEPOSIT" | "WITHDRAW";

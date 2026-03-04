@@ -12,6 +12,16 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      animation: {
+        'spin-slow': 'spin 8s linear infinite',
+        'reverse-spin-slow': 'reverse-spin 12s linear infinite',
+      },
+      keyframes: {
+        'reverse-spin': {
+          from: { transform: 'rotate(360deg)' },
+          to: { transform: 'rotate(0deg)' },
+        }
+      }
     },
   },
   plugins: [],

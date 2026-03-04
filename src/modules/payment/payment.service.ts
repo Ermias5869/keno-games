@@ -23,7 +23,7 @@ export const paymentService = {
    */
   async initializeDeposit(userId: string, amount: number) {
     // Generate a unique transaction reference
-    const txRef = `KENO-${randomUUID()}`;
+    const txRef = `SyntaxKeno-${randomUUID()}`;
 
     // Save pending transaction BEFORE calling Chapa
     // This ensures we always have a record even if Chapa call fails
@@ -52,8 +52,8 @@ export const paymentService = {
         callback_url: `${BASE_URL}/api/payments/chapa/webhook`,
         return_url: `${BASE_URL}/?deposit=success&tx_ref=${txRef}`,
         customization: {
-          title: "KENO80 Deposit",
-          description: `Deposit ${amount} ETB to your KENO80 wallet`,
+          title: "SyntaxKeno Deposit",
+          description: `Deposit ${amount} ETB to your SyntaxKeno wallet`,
         },
       });
 
@@ -203,6 +203,65 @@ export const paymentService = {
   /** Get a user's transaction history */
   async getTransactionHistory(userId: string) {
     return paymentRepository.getUserTransactions(userId);
+  },
+
+  /**
+   * Request a withdrawal.
+   * 1. Create PENDING withdrawal in DB (deducts balance)
+   * 2. Call Chapa transfer API (if auto-process is enabled)
+   * 3. Update status based on Chapa response
+   */
+  async requestWithdraw(data: {
+    userId: string;
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  }) {
+    const txRef = `SyntaxWithdraw-${randomUUID()}`;
+
+    // Create record and deduct balance
+    const transaction = await paymentRepository.createWithdrawRequest({
+      userId: data.userId,
+      txRef,
+      amount: data.amount,
+      bankName: data.bankName,
+      accountNumber: data.accountNumber,
+      accountName: data.accountName,
+    });
+
+    try {
+      // Call Chapa transfer API
+      // Note: In some setups, withdrawals might be manual. 
+      // Here we attempt auto-transfer via Chapa.
+      const chapaResponse = await chapaService.transfer({
+        amount: data.amount,
+        currency: "ETB",
+        beneficiary_name: data.accountName,
+        account_number: data.accountNumber,
+        bank_code: data.bankCode,
+        reference: txRef,
+      });
+
+      if (chapaResponse.status === "success") {
+        await paymentRepository.completeWithdraw(txRef, (chapaResponse.data as { id: string })?.id || "manual");
+        return { status: "SUCCESS", message: "Withdrawal processed successfully" };
+      } else {
+        // This part might vary depending on Chapa API behavior
+        return { status: "PENDING", message: "Withdrawal is being processed" };
+      }
+    } catch (error) {
+      console.error("❌ Withdrawal transfer failed:", error);
+      // We DON'T fail the transaction automatically here because 
+      // Chapa might have received it but returned an error.
+      // Usually, withdrawals should be reviewed if auto-transfer fails.
+      return { 
+        status: "PENDING", 
+        message: "Request received. If auto-transfer fails, an admin will process it manually.",
+        txRef
+      };
+    }
   },
 };
 

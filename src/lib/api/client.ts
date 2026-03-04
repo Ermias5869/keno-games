@@ -117,4 +117,22 @@ export const apiClient = {
     fetchWithAuth(`/payments/chapa/verify?tx_ref=${encodeURIComponent(txRef)}`),
 
   getTransactions: () => fetchWithAuth("/payments/transactions"),
+
+  getBanks: () => fetchWithAuth("/payments/banks"),
+
+  requestWithdraw: (data: {
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    bankCode: string;
+  }) =>
+    fetchWithAuth("/payments/withdraw", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Game tabs
+  getMyHistory: (page = 1, limit = 20) =>
+    fetchWithAuth(`/game/my-history?page=${page}&limit=${limit}`),
 };

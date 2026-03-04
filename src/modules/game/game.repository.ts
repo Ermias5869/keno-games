@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 
+/** Mask a phone number: +251912345678 → +25***5678 */
+export function maskPhone(phone: string): string {
+  if (phone.length <= 4) return "****";
+  return phone.slice(0, 3) + "***" + phone.slice(-4);
+}
+
 /** Game repository — database operations for rounds, bets, and payouts */
 export const gameRepository = {
   /** Create a new game round */
@@ -55,7 +61,7 @@ export const gameRepository = {
    * Place a bet within a database transaction.
    * - Checks user balance
    * - Deducts bet amount
-   * - Creates bet record
+   * - Creates bet record with status PENDING
    */
   async placeBet(data: {
     userId: string;
@@ -64,8 +70,6 @@ export const gameRepository = {
     betAmount: number;
   }) {
     return prisma.$transaction(async (tx) => {
-      // Get user with lock (SELECT ... FOR UPDATE via raw query isn't supported, but
-      // Prisma transactions provide serializable isolation by default)
       const user = await tx.user.findUnique({
         where: { id: data.userId },
       });
@@ -78,7 +82,6 @@ export const gameRepository = {
         throw new GameError("Insufficient balance", 400);
       }
 
-      // Check the round is still accepting bets
       const round = await tx.gameRound.findUnique({
         where: { id: data.roundId },
       });
@@ -87,7 +90,6 @@ export const gameRepository = {
         throw new GameError("Round is not accepting bets", 400);
       }
 
-      // Check for duplicate bet (same user, same round)
       const existingBet = await tx.bet.findFirst({
         where: {
           userId: data.userId,
@@ -107,13 +109,17 @@ export const gameRepository = {
         },
       });
 
-      // Create bet record
+      // Create bet record with PENDING status
       const bet = await tx.bet.create({
         data: {
           userId: data.userId,
           roundId: data.roundId,
           selectedNumbers: data.selectedNumbers,
           betAmount: new Decimal(data.betAmount),
+          status: "PENDING",
+        },
+        include: {
+          user: { select: { phone: true } },
         },
       });
 
@@ -123,22 +129,19 @@ export const gameRepository = {
 
   /**
    * Resolve all bets for a round.
-   * Calculates matches and payouts in a single transaction.
+   * Calculates matches, payouts, and sets bet status (WON/LOST).
    */
   async resolveRoundBets(roundId: string, drawnNumbers: number[]) {
     return prisma.$transaction(async (tx) => {
-      // Get all bets for this round
       const bets = await tx.bet.findMany({
         where: { roundId },
       });
 
       for (const bet of bets) {
-        // Calculate matches
         const matches = bet.selectedNumbers.filter((n) =>
           drawnNumbers.includes(n)
         ).length;
 
-        // Get multiplier from payout table
         const multiplierRecord = await tx.payoutMultiplier.findUnique({
           where: {
             selectedCount_matchCount: {
@@ -152,13 +155,15 @@ export const gameRepository = {
           ? multiplierRecord.multiplier.toNumber()
           : 0;
         const payout = bet.betAmount.toNumber() * multiplier;
+        const status = payout > 0 ? "WON" : "LOST";
 
-        // Update bet with results
+        // Update bet with results and status
         await tx.bet.update({
           where: { id: bet.id },
           data: {
             matches,
             payout: new Decimal(payout),
+            status,
           },
         });
 
@@ -177,6 +182,138 @@ export const gameRepository = {
     });
   },
 
+  // ── New queries for tabs ──
+
+  /** GAME TAB: Get all bets for the current round with masked usernames */
+  async getCurrentRoundBets(roundId: string) {
+    const bets = await prisma.bet.findMany({
+      where: { roundId },
+      include: {
+        user: { select: { phone: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return bets.map((bet) => ({
+      id: bet.id,
+      username: maskPhone(bet.user.phone),
+      selectedNumbers: bet.selectedNumbers,
+      betAmount: bet.betAmount.toNumber(),
+      status: bet.status,
+      createdAt: bet.createdAt,
+    }));
+  },
+
+  /** HISTORY TAB: Get authenticated user's bet history with pagination */
+  async getUserBetHistory(userId: string, page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+
+    const [bets, total] = await Promise.all([
+      prisma.bet.findMany({
+        where: { userId },
+        include: {
+          round: {
+            select: {
+              id: true,
+              drawnNumbers: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.bet.count({ where: { userId } }),
+    ]);
+
+    return {
+      bets: bets.map((bet) => ({
+        id: bet.id,
+        roundId: bet.roundId,
+        selectedNumbers: bet.selectedNumbers,
+        betAmount: bet.betAmount.toNumber(),
+        matches: bet.matches,
+        payout: bet.payout.toNumber(),
+        status: bet.status,
+        drawnNumbers: bet.round.drawnNumbers,
+        createdAt: bet.createdAt,
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  },
+
+  /** RESULTS TAB: Get last N completed rounds with aggregate stats */
+  async getCompletedRounds(limit = 100, order: "asc" | "desc" = "desc") {
+    const rounds = await prisma.gameRound.findMany({
+      where: { status: "completed" },
+      include: {
+        _count: { select: { bets: true } },
+        bets: {
+          select: { payout: true },
+        },
+      },
+      orderBy: { createdAt: order },
+      take: limit,
+    });
+
+    return rounds.map((round) => ({
+      id: round.id,
+      drawnNumbers: round.drawnNumbers,
+      totalBets: round._count.bets,
+      totalPayout: round.bets.reduce(
+        (sum, bet) => sum + bet.payout.toNumber(),
+        0
+      ),
+      createdAt: round.createdAt,
+    }));
+  },
+
+  /** LEADERS TAB: Top 10 users by total winnings with aggregate */
+  async getLeaderboardAggregated(limit = 10) {
+    // Aggregate total payout and bet count grouped by userId
+    const leaders = await prisma.bet.groupBy({
+      by: ["userId"],
+      _sum: { payout: true, betAmount: true },
+      _count: { id: true },
+      orderBy: {
+        _sum: { payout: "desc" },
+      },
+      take: limit,
+    });
+
+    // Count wins per user
+    const userIds = leaders.map((l) => l.userId);
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, phone: true },
+    });
+
+    const winCounts = await prisma.bet.groupBy({
+      by: ["userId"],
+      where: { userId: { in: userIds }, status: "WON" },
+      _count: { id: true },
+    });
+
+    const winCountMap = new Map(
+      winCounts.map((w) => [w.userId, w._count.id])
+    );
+    const userMap = new Map(users.map((u) => [u.id, u.phone]));
+
+    return leaders.map((leader) => {
+      const totalBets = leader._count.id;
+      const wins = winCountMap.get(leader.userId) || 0;
+      return {
+        username: maskPhone(userMap.get(leader.userId) || "unknown"),
+        totalWinnings: leader._sum.payout?.toNumber() || 0,
+        totalBets,
+        winRate: totalBets > 0 ? Math.round((wins / totalBets) * 100) : 0,
+      };
+    });
+  },
+
   /** Get payout multiplier table */
   async getPayoutTable() {
     return prisma.payoutMultiplier.findMany({
@@ -184,7 +321,7 @@ export const gameRepository = {
     });
   },
 
-  /** Get user bet history */
+  /** Get user bet history (legacy) */
   async getUserBets(userId: string, limit = 50) {
     return prisma.bet.findMany({
       where: { userId },
@@ -198,22 +335,6 @@ export const gameRepository = {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: limit,
-    });
-  },
-
-  /** Get leaderboard (top wins) */
-  async getLeaderboard(limit = 20) {
-    return prisma.bet.findMany({
-      where: {
-        payout: { gt: 0 },
-      },
-      include: {
-        user: {
-          select: { phone: true },
-        },
-      },
-      orderBy: { payout: "desc" },
       take: limit,
     });
   },

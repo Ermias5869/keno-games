@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth.store";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DepositModal from "@/components/payment/DepositModal";
+import WithdrawModal from "@/components/payment/WithdrawModal";
 
 /**
  * Header component — balance display, deposit button, user info, and navigation.
@@ -13,6 +14,7 @@ export default function Header() {
   const { user, isAuthenticated, logout } = useAuthStore();
   const router = useRouter();
   const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -26,11 +28,11 @@ export default function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <span className="text-white font-black text-lg">K</span>
+              <span className="text-white font-black text-lg">S</span>
             </div>
             <div>
               <h1 className="text-lg font-bold text-white tracking-tight">
-                KENO<span className="text-emerald-400">80</span>
+                Syntax<span className="text-emerald-400">Keno</span>
               </h1>
               <p className="text-[10px] text-gray-500 -mt-1 tracking-widest uppercase">
                 Provably Fair
@@ -42,22 +44,30 @@ export default function Header() {
           <div className="flex items-center gap-3">
             {isAuthenticated && user ? (
               <>
-                {/* Balance + Deposit */}
-                <div className="bg-[#1a2332] rounded-xl px-3 py-2 border border-[#2a3a4d] flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Balance</span>
-                  <span className="text-amber-400 font-bold text-base">
-                    {Number(user.balance).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </span>
+                {/* Balance + Deposit / Withdraw */}
+                <div className="flex items-center gap-2">
+                  <div className="bg-[#1a2332] rounded-xl px-3 py-2 border border-[#2a3a4d] flex items-center gap-2">
+                    <span className="text-xs text-gray-400">Balance</span>
+                    <span className="text-amber-400 font-bold text-base">
+                      {Number(user.balance).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                    <button
+                      onClick={() => setShowDeposit(true)}
+                      className="ml-1 w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 
+                        flex items-center justify-center text-lg font-bold hover:bg-emerald-500/30 transition-colors"
+                      title="Deposit"
+                    >
+                      +
+                    </button>
+                  </div>
                   <button
-                    onClick={() => setShowDeposit(true)}
-                    className="ml-1 w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 
-                      flex items-center justify-center text-lg font-bold hover:bg-emerald-500/30 transition-colors"
-                    title="Deposit"
+                    onClick={() => setShowWithdraw(true)}
+                    className="h-10 px-4 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-all uppercase tracking-wider"
                   >
-                    +
+                    Withdraw
                   </button>
                 </div>
 
@@ -102,8 +112,9 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Deposit Modal */}
+      {/* Modals */}
       <DepositModal isOpen={showDeposit} onClose={() => setShowDeposit(false)} />
+      <WithdrawModal isOpen={showWithdraw} onClose={() => setShowWithdraw(false)} />
     </>
   );
 }

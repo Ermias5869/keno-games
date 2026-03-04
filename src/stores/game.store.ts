@@ -8,6 +8,9 @@ interface GameState {
   toggleNumber: (num: number) => void;
   clearSelection: () => void;
 
+  // Last selected numbers (preserved at round end for result display)
+  lastSelectedNumbers: number[];
+
   // Bet amount
   betAmount: number;
   setBetAmount: (amount: number) => void;
@@ -52,10 +55,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ selectedNumbers: [...current, num].sort((a, b) => a - b) });
     }
   },
-  clearSelection: () => set({ selectedNumbers: [] }),
+  // Save current selection to lastSelectedNumbers before clearing
+  clearSelection: () =>
+    set((state) => ({
+      lastSelectedNumbers: state.selectedNumbers.length > 0
+        ? state.selectedNumbers
+        : state.lastSelectedNumbers,
+      selectedNumbers: [],
+    })),
+
+  lastSelectedNumbers: [],
 
   betAmount: 5,
-  setBetAmount: (amount) => set({ betAmount: amount }),
+  setBetAmount: (amount) => set({ betAmount: Math.max(1, amount) }),
 
   currentRoundId: null,
   setCurrentRoundId: (id) => set({ currentRoundId: id }),
@@ -76,6 +88,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       drawnNumbers: [],
       lastBetResult: null,
+      lastSelectedNumbers: [],
+      selectedNumbers: [],
       roundStatus: "betting",
     }),
 }));

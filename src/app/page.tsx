@@ -10,8 +10,8 @@ import KenoGrid from "@/components/game/KenoGrid";
 import BetControls from "@/components/game/BetControls";
 import CountdownTimer from "@/components/game/CountdownTimer";
 import ResultReveal from "@/components/game/ResultReveal";
-import BetHistory from "@/components/game/BetHistory";
-import Leaderboard from "@/components/game/Leaderboard";
+import GameSidePanel from "@/components/game/GameSidePanel";
+import ChatPanel from "@/components/chat/ChatPanel";
 import { useGameStore } from "@/stores/game.store";
 
 export default function GamePage() {
@@ -61,15 +61,15 @@ export default function GamePage() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left sidebar — Bet History */}
-          <div className="lg:col-span-3 order-3 lg:order-1 space-y-4">
-            <BetHistory />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-2 py-3">
+        <div className="grid grid-cols-12 gap-2">
+          {/* Left sidebar — Game Side Panel (4 tabs) */}
+          <div className="col-span-3">
+            <GameSidePanel />
           </div>
 
           {/* Center — Game area */}
-          <div className="lg:col-span-6 order-1 lg:order-2 space-y-4">
+          <div className="col-span-6 space-y-2">
             {/* Timer + Selection info */}
             <div className="flex items-center justify-between">
               <CountdownTimer />
@@ -136,17 +136,18 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Right sidebar — Leaderboard */}
-          <div className="lg:col-span-3 order-2 lg:order-3 space-y-4">
-            <Leaderboard />
+          {/* Right sidebar — Live Chat */}
+          <div className="col-span-3">
+            <ChatPanel />
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-[#1b3a4b] py-4 text-center text-xs text-gray-600">
-        KENO80 — Provably Fair • All draws are verifiable
+        SyntaxKeno — Provably Fair • All draws are verifiable
       </footer>
     </div>
   );
 }
+

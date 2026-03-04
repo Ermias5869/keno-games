@@ -53,10 +53,10 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-2xl shadow-emerald-500/20 mb-4">
-            <span className="text-white font-black text-3xl">K</span>
+            <span className="text-white font-black text-3xl">S</span>
           </div>
           <h1 className="text-2xl font-bold text-white">
-            Welcome Back to <span className="text-emerald-400">KENO80</span>
+            Welcome Back to <span className="text-emerald-400">SyntaxKeno</span>
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             Sign in to start playing

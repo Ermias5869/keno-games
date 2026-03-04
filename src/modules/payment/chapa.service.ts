@@ -3,6 +3,9 @@ import {
   ChapaInitializeRequest,
   ChapaInitializeResponse,
   ChapaVerifyResponse,
+  ChapaTransferRequest,
+  ChapaTransferResponse,
+  ChapaBank,
 } from "./types";
 
 const CHAPA_API_URL = "https://api.chapa.co/v1";
@@ -78,6 +81,45 @@ class ChapaService {
           txRef,
         });
         throw new ChapaError(message, error.response?.status || 500);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Transfer funds to a bank account.
+   */
+  async transfer(data: ChapaTransferRequest): Promise<ChapaTransferResponse> {
+    try {
+      const response = await this.client.post<ChapaTransferResponse>(
+        "/transfer",
+        data
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message =
+          error.response?.data?.message || "Failed to initiate Chapa transfer";
+        console.error("Chapa transfer error:", {
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+        throw new ChapaError(message, error.response?.status || 500);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get supported banks from Chapa.
+   */
+  async getBanks(): Promise<ChapaBank[]> {
+    try {
+      const response = await this.client.get("/banks");
+      return response.data.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new ChapaError("Failed to fetch supported banks", error.response?.status || 500);
       }
       throw error;
     }

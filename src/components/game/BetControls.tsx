@@ -3,7 +3,7 @@
 import { useGameStore } from "@/stores/game.store";
 import { useAuthStore } from "@/stores/auth.store";
 import { usePayoutTable, usePlaceBet } from "@/hooks/use-game";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Bet controls — amount input, multiplier display, possible win, and BET button.
@@ -67,10 +67,12 @@ export default function BetControls() {
     }
   };
 
-  // Reset betPlaced when a new round starts
-  if (betPlaced && roundStatus === "betting") {
-    setBetPlaced(false);
-  }
+  // Reset betPlaced when a NEW round starts (use effect, not render body)
+  useEffect(() => {
+    if (roundStatus === "betting") {
+      setBetPlaced(false);
+    }
+  }, [roundStatus]);
 
   return (
     <div className="space-y-4">
@@ -112,8 +114,8 @@ export default function BetControls() {
             {selectedNumbers.map((num) => (
               <span
                 key={num}
-                className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 
-                  text-black font-bold text-sm flex items-center justify-center shadow-md"
+                className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600
+                  text-white font-bold text-sm flex items-center justify-center shadow-md"
               >
                 {num}
               </span>
@@ -137,7 +139,7 @@ export default function BetControls() {
           value={betAmount}
           onChange={(e) => {
             const val = parseFloat(e.target.value);
-            if (!isNaN(val) && val >= 0) setBetAmount(val);
+            if (!isNaN(val) && val >= 1) setBetAmount(val);
           }}
           className="flex-1 text-center bg-[#1a2332] border border-[#2a3a4d] rounded-lg 
             text-white text-lg font-bold py-2 focus:outline-none focus:border-emerald-500/50

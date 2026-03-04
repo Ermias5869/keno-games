@@ -32,6 +32,23 @@
   }
 }
 
+/* Big draw appear animation */
+@keyframes drawAppear {
+  0% {
+    transform: scale(0) rotate(-15deg);
+    opacity: 0;
+    filter: blur(10px);
+  }
+  70% {
+    transform: scale(1.1) rotate(5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
 /* Glow pulse for big wins */
 @keyframes glowPulse {
   0%, 100% {
@@ -40,6 +57,11 @@
   50% {
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.6), 0 0 40px rgba(16, 185, 129, 0.3);
   }
+}
+
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
 /* Background grid pattern */

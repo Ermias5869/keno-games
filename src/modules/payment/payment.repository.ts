@@ -111,6 +111,96 @@ export const paymentRepository = {
       take: limit,
     });
   },
+
+  /** 
+   * Create a withdrawal request:
+   * 1. Check if user has enough balance
+   * 2. Deduct balance immediately
+   * 3. Create a PENDING transaction
+   */
+  async createWithdrawRequest(data: {
+    userId: string;
+    txRef: string;
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  }) {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: data.userId },
+        select: { balance: true }
+      });
+
+      if (!user || user.balance.lt(data.amount)) {
+        throw new PaymentError("Insufficient balance", 400);
+      }
+
+      // Deduct balance
+      await tx.user.update({
+        where: { id: data.userId },
+        data: {
+          balance: { decrement: data.amount },
+        },
+      });
+
+      // Create transaction record
+      return tx.transaction.create({
+        data: {
+          userId: data.userId,
+          txRef: data.txRef,
+          amount: new Decimal(data.amount),
+          type: "WITHDRAW",
+          status: "PENDING",
+          bankName: data.bankName,
+          accountNumber: data.accountNumber,
+          accountName: data.accountName,
+        },
+      });
+    });
+  },
+
+  /** Complete a withdrawal successfully */
+  async completeWithdraw(txRef: string, chapaTxId: string) {
+    return prisma.transaction.update({
+      where: { txRef },
+      data: {
+        status: "SUCCESS" as TransactionStatus,
+        chapaTxId,
+      },
+    });
+  },
+
+  /** 
+   * Fail a withdrawal request:
+   * 1. Mark transaction as FAILED
+   * 2. Refund user balance
+   */
+  async failWithdraw(txRef: string) {
+    return prisma.$transaction(async (tx) => {
+      const transaction = await tx.transaction.findUnique({
+        where: { txRef },
+      });
+
+      if (!transaction || transaction.status !== "PENDING" || transaction.type !== "WITHDRAW") {
+        return;
+      }
+
+      // Update status
+      await tx.transaction.update({
+        where: { txRef },
+        data: { status: "FAILED" as TransactionStatus },
+      });
+
+      // Refund balance
+      await tx.user.update({
+        where: { id: transaction.userId },
+        data: {
+          balance: { increment: transaction.amount },
+        },
+      });
+    });
+  },
 };
 
 /** Custom error class for payment errors */

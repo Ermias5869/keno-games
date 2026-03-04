@@ -33,7 +33,7 @@ export default function KenoGrid() {
     default:
       "bg-[#1a2332] text-gray-300 hover:bg-[#243447] hover:text-white border-[#2a3a4d] cursor-pointer",
     selected:
-      "bg-gradient-to-br from-amber-500 to-amber-600 text-black font-bold border-amber-400 shadow-lg shadow-amber-500/30 cursor-pointer scale-105",
+      "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold border-emerald-400 shadow-lg shadow-emerald-500/30 cursor-pointer scale-105",
     matched:
       "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold border-emerald-400 shadow-lg shadow-emerald-500/40 animate-pulse",
     missed:

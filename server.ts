@@ -15,6 +15,11 @@ const handle = app.getRequestHandler();
 const prisma = new PrismaClient();
 
 // ── Provably Fair helpers (duplicated to avoid import issues in custom server) ──
+function maskPhone(phone: string): string {
+  if (!phone || phone.length <= 4) return "****";
+  return phone[0] + "***" + phone[phone.length - 1];
+}
+
 function generateServerSeed(): string {
   return crypto.randomBytes(32).toString("hex");
 }
@@ -118,6 +123,7 @@ async function resolveRound(io: SocketIOServer) {
     // Resolve all bets
     const bets = await prisma.bet.findMany({
       where: { roundId },
+      include: { user: { select: { phone: true } } },
     });
 
     for (const bet of bets) {
@@ -139,11 +145,12 @@ async function resolveRound(io: SocketIOServer) {
         ? multiplierRecord.multiplier.toNumber()
         : 0;
       const payout = bet.betAmount.toNumber() * multiplier;
+      const status = payout > 0 ? "WON" : "LOST";
 
-      // Update bet
+      // Update bet with results and status
       await prisma.bet.update({
         where: { id: bet.id },
-        data: { matches, payout },
+        data: { matches, payout, status },
       });
 
       // Credit winnings
@@ -160,6 +167,9 @@ async function resolveRound(io: SocketIOServer) {
         });
       }
     }
+
+    // Broadcast bet status updates for GAME tab
+    io.emit("bets:resolved", { roundId });
 
     console.log(
       `✅ Round ${roundId} resolved: ${drawnNumbers.join(", ")} | ${bets.length} bets processed`
@@ -227,6 +237,68 @@ app.prepare().then(() => {
           }
         });
     }
+
+    // ── Chat: send last 50 messages on connect ──
+    prisma.chatMessage
+      .findMany({
+        include: { user: { select: { phone: true } } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      })
+      .then((msgs) => {
+        const history = msgs.reverse().map((m) => ({
+          id: m.id,
+          username: maskPhone(m.user.phone),
+          message: m.message,
+          likes: m.likes,
+          createdAt: m.createdAt,
+        }));
+        socket.emit("chat:history", history);
+      });
+
+    // ── Chat: receive and broadcast new message ──
+    // Simple per-socket rate limit: 1 message per 2s
+    let lastMsgTime = 0;
+
+    socket.on("chat:send", async (data: { userId: string; message: string }) => {
+      const now = Date.now();
+      if (now - lastMsgTime < 2000) return; // rate limit
+      lastMsgTime = now;
+
+      const text = (data.message || "").trim().slice(0, 500);
+      if (!text || !data.userId) return;
+
+      try {
+        const saved = await prisma.chatMessage.create({
+          data: { userId: data.userId, message: text },
+          include: { user: { select: { phone: true } } },
+        });
+
+        io.emit("chat:message", {
+          id: saved.id,
+          username: maskPhone(saved.user.phone),
+          message: saved.message,
+          likes: 0,
+          createdAt: saved.createdAt,
+        });
+      } catch (err) {
+        console.error("Chat send error:", err);
+      }
+    });
+
+    // ── Chat: like a message ──
+    socket.on("chat:like", async (data: { messageId: string }) => {
+      if (!data.messageId) return;
+      try {
+        const updated = await prisma.chatMessage.update({
+          where: { id: data.messageId },
+          data: { likes: { increment: 1 } },
+        });
+        io.emit("chat:liked", { messageId: data.messageId, likes: updated.likes });
+      } catch {
+        // Message may not exist
+      }
+    });
 
     socket.on("disconnect", () => {
       console.log(`👤 Client disconnected: ${socket.id}`);

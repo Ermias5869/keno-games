@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { SignJWT, jwtVerify, JWTPayload } from "jose";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -58,4 +59,25 @@ export async function verifyRefreshToken(
   } catch {
     return null;
   }
+}
+
+/** 
+ * Helper to verify auth in API routes.
+ * Extracts Bearer token and returns payload if valid.
+ */
+export async function verifyAuth(req: NextRequest) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.split(" ")[1];
+  const payload = await verifyAccessToken(token);
+  
+  if (!payload) return null;
+  
+  return {
+    id: payload.userId,
+    role: payload.role,
+  };
 }

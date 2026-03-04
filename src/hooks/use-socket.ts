@@ -69,6 +69,9 @@ export function useSocket() {
         setDrawnNumbers(data.drawnNumbers);
         setRoundStatus("completed");
 
+        // Clear selected numbers when round ends
+        useGameStore.getState().clearSelection();
+
         // Refresh profile (balance) and bet history
         queryClient.invalidateQueries({ queryKey: ["profile"] });
         queryClient.invalidateQueries({ queryKey: ["betHistory"] });
@@ -105,5 +108,5 @@ export function useSocket() {
     };
   }, [connect]);
 
-  return socketRef;
+  return { socket: socketRef.current, socketRef };
 }

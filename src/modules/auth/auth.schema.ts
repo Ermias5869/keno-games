@@ -1,12 +1,15 @@
 import { z } from "zod";
 
 /** Phone number validation — supports international formats */
-const phoneRegex = /^\+?[1-9]\d{6,14}$/;
+const ethiopiaPhoneRegex = /^(?:\+2519\d{8}|09\d{8})$/;
 
 export const RegisterSchema = z.object({
   phone: z
     .string()
-    .regex(phoneRegex, "Invalid phone number format. Use E.164 format (e.g. +1234567890)"),
+    .regex(
+      ethiopiaPhoneRegex,
+      "Invalid Ethiopian phone number. Use +2519XXXXXXXX or 09XXXXXXXX format."
+    ),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -16,7 +19,7 @@ export const RegisterSchema = z.object({
 export const LoginSchema = z.object({
   phone: z
     .string()
-    .regex(phoneRegex, "Invalid phone number format"),
+    .regex(ethiopiaPhoneRegex, "Invalid Ethiopian phone number. Use +2519XXXXXXXX or 09XXXXXXXX format."),
   password: z
     .string()
     .min(1, "Password is required"),
